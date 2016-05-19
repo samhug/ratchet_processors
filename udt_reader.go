@@ -4,26 +4,23 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/dailyburn/ratchet/data"
-	"github.com/dailyburn/ratchet/logger"
 	"github.com/dailyburn/ratchet/util"
 	"github.com/hashicorp/go-uuid"
 	"github.com/pkg/sftp"
+	"github.com/samuelhug/goxml2json"
 	"golang.org/x/crypto/ssh"
 )
 
 // UdtReader connects to a UDT server via SSH and runs the specified query.
 type UdtReader struct {
-	sshClient    *ssh.Client
-	config       *UdtConfig
-	query        string
-	recordSchema []*UdtFieldInfo
+	sshClient *ssh.Client
+	config    *UdtConfig
+	query     string
 }
 
 type UdtConfig struct {
@@ -31,13 +28,6 @@ type UdtConfig struct {
 	Username string
 	Password string
 }
-
-const (
-	UDTString  string = "string"
-	UDTInt            = "int"
-	UDTDecimal        = "decimal"
-	UDTBool           = "bool"
-)
 
 type UdtFieldInfo struct {
 	Name    string
@@ -47,7 +37,7 @@ type UdtFieldInfo struct {
 
 // NewUdtReader returns a new UdtReader that will run the given query and send
 // each record one at a time.
-func NewUdtReader(config *UdtConfig, query string, recordSchema []*UdtFieldInfo) (*UdtReader, error) {
+func NewUdtReader(config *UdtConfig, query string) (*UdtReader, error) {
 	sshConfig := &ssh.ClientConfig{
 		User: config.Username,
 		Auth: []ssh.AuthMethod{
@@ -61,10 +51,9 @@ func NewUdtReader(config *UdtConfig, query string, recordSchema []*UdtFieldInfo)
 	}
 
 	return &UdtReader{
-		sshClient:    sshClient,
-		config:       config,
-		query:        query,
-		recordSchema: recordSchema,
+		sshClient: sshClient,
+		config:    config,
+		query:     query,
 	}, nil
 }
 
@@ -88,9 +77,12 @@ func (r *UdtReader) runUDTQuery(killChan chan error, forEach func(d data.JSON)) 
 		panic(err)
 	}
 
-	tempFile := fmt.Sprintf("_HOLD_/%s.txt", u)
+	tempFile := fmt.Sprintf("_HOLD_/%s", u)
 
-	command := fmt.Sprintf("%s TO %s", r.query, tempFile)
+	command := fmt.Sprintf("%s TOXML ELEMENTS TO %s", r.query, tempFile)
+
+	// UniData appends a .xml to the filename
+	tempFile = fmt.Sprintf("%s.xml", tempFile)
 
 	// Initiate PHANTOM process
 	pid, comoFile, err := r.startUDTPhantom(command)
@@ -124,19 +116,24 @@ func (r *UdtReader) runUDTQuery(killChan chan error, forEach func(d data.JSON)) 
 	}
 
 	// Iterate through each line of output and parse the record
-	buf := bufio.NewReader(bytes.NewBuffer(output))
-	for {
-		d, err := r.readRecord(buf)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
+	bufReader := bufio.NewReader(bytes.NewBuffer(output))
 
-			util.KillPipelineIfErr(fmt.Errorf("Error reading record from UDT output: %s", err), killChan)
-		}
+	node := &xml2json.Node{}
 
-		forEach(d)
+	err = xml2json.NewDecoder(bufReader).Decode(node)
+	if err != nil {
+		util.KillPipelineIfErr(fmt.Errorf("Error decoding XML object: %s", err), killChan)
 	}
+
+	buf := new(bytes.Buffer)
+	err = xml2json.NewEncoder(buf).Encode(node.Children["ROOT"][0])
+	if err != nil {
+		util.KillPipelineIfErr(fmt.Errorf("Error encoding JSON object: %s", err), killChan)
+	}
+
+	d := buf.Bytes()
+
+	forEach(d)
 }
 
 func args(a ...interface{}) []interface{} { return a }
@@ -219,83 +216,4 @@ func (r *UdtReader) retrieveAndDelete(path string) ([]byte, error) {
 	}
 
 	return buf, nil
-}
-
-func (r *UdtReader) readRecord(reader *bufio.Reader) (data.JSON, error) {
-
-	// Expects record to be a string with fields delimited by an 0xFE character
-	// For Example:
-	// 001!610-220þ610-220þ65-2575
-
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-
-		line = strings.TrimRight(line, "\n")
-
-		// If the line is empty, get the next one
-		if len(line) == 0 {
-			continue
-		}
-
-		// Field Delimiter:		\xfe
-		// MV Field Delimiter:	\xfd
-
-		record := make(map[string]interface{})
-
-		field_strs := strings.Split(line, "\xfe")
-
-		for i, field_str := range field_strs {
-
-			fieldInfo := r.recordSchema[i]
-			if fieldInfo.IsMulti {
-				var sub_fields []interface{}
-
-				sub_field_strs := strings.Split(field_str, "\xfd")
-				for _, v := range sub_field_strs {
-					o, err := r.parseValue(v, fieldInfo.Type)
-					if err != nil {
-						logger.Error(fmt.Errorf("Error parsing multi-valued field (%s): %s\n %v", fieldInfo.Name, err, field_strs))
-						continue
-					}
-					sub_fields = append(sub_fields, o)
-				}
-
-				record[fieldInfo.Name] = sub_fields
-			} else {
-				o, err := r.parseValue(field_str, fieldInfo.Type)
-				if err != nil {
-					logger.Error(fmt.Errorf("Error parsing field (%s): %s", fieldInfo.Name, err))
-					continue
-				}
-				record[fieldInfo.Name] = o
-			}
-		}
-
-		return data.NewJSON(record)
-	}
-}
-
-func (r *UdtReader) parseValue(value string, dataType string) (interface{}, error) {
-
-	//value = strings.TrimSpace(value)
-
-	if value == "" {
-		return nil, nil
-	}
-
-	switch dataType {
-	default:
-		return nil, fmt.Errorf("Unsupported type '%s'", dataType)
-	case UDTString:
-		return value, nil
-	case UDTInt:
-		return strconv.ParseInt(value, 10, 32)
-	case UDTBool:
-		return strconv.ParseBool(value)
-	case UDTDecimal:
-		return strconv.ParseFloat(value, 32)
-	}
 }
