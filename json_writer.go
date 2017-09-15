@@ -29,11 +29,14 @@ func (w *JSONWriter) Finish(outputChan chan data.JSON, killChan chan error) {
 	_, err := w.writer.Write([]byte("["))
 	util.KillPipelineIfErr(err, killChan)
 
-	for _, d := range w.buffer {
+	last := len(w.buffer) - 1
+	for i, d := range w.buffer {
 		_, err = w.writer.Write(d)
 		util.KillPipelineIfErr(err, killChan)
 
-		_, err = w.writer.Write([]byte(","))
+		if i != last {
+			_, err = w.writer.Write([]byte(","))
+		}
 		util.KillPipelineIfErr(err, killChan)
 	}
 
