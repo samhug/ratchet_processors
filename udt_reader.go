@@ -43,6 +43,7 @@ func NewUdtReader(config *UdtConfig, query string) (*UdtReader, error) {
 		Auth: []ssh.AuthMethod{
 			ssh.Password(config.Password),
 		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
 	sshClient, err := ssh.Dial("tcp", config.Address, sshConfig)

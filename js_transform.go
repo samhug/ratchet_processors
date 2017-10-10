@@ -24,8 +24,8 @@ func NewJsTransform(script string) (*JsTransform, error) {
 
 	// Add logging function
 	vm.Set("logWrite", func(call otto.FunctionCall) otto.Value {
-	    fmt.Printf("JS_LOG: %s\n", call.Argument(0).String())
-	    return otto.Value{}
+		fmt.Printf("JS_LOG: %s\n", call.Argument(0).String())
+		return otto.Value{}
 	})
 
 	vmScript, err := vm.Compile("", script)
@@ -44,7 +44,7 @@ func (t *JsTransform) ProcessData(d data.JSON, outputChan chan data.JSON, killCh
 	if err != nil {
 		util.KillPipelineIfErr(fmt.Errorf("Unable to unmarshal JSON object for JS transformation: %s", err), killChan)
 	}
-	
+
 	t.vm.Set("data", objs)
 
 	_, err = t.vm.Run(t.script)
