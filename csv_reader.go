@@ -69,5 +69,5 @@ func (r *CSVReader) Finish(outputChan chan data.JSON, killChan chan error) {
 }
 
 func (r *CSVReader) String() string {
-	return "JsTransform"
+	return "CSVReader"
 }
