@@ -5,7 +5,7 @@ import (
 
 	"github.com/dailyburn/ratchet/data"
 	"github.com/dailyburn/ratchet/util"
-	"github.com/samuelhug/otto"
+	"github.com/robertkrimen/otto"
 )
 
 type JSConfig struct {
