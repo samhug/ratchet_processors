@@ -1,6 +1,8 @@
 package ratchet_processors
 
 import (
+	"encoding/json"
+	"errors"
 	"io"
 	"io/ioutil"
 
@@ -22,6 +24,10 @@ func NewJSONReader(r io.Reader) *JSONReader {
 func (r *JSONReader) ProcessData(d data.JSON, outputChan chan data.JSON, killChan chan error) {
 	buf, err := ioutil.ReadAll(r.reader)
 	util.KillPipelineIfErr(err, killChan)
+
+	if !json.Valid(buf) {
+		util.KillPipelineIfErr(errors.New("Not valid JSON"), killChan)
+	}
 
 	outputChan <- buf
 }

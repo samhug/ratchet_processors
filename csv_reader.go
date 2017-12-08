@@ -5,25 +5,31 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/dailyburn/ratchet"
 	"github.com/dailyburn/ratchet/data"
 	"github.com/dailyburn/ratchet/util"
 )
 
+// CSVReader is a ratchet DataProcessor for extracting data from CSV files
 type CSVReader struct {
 	reader  *csv.Reader
 	headers []string
 }
 
+// Assert CSVReader satisfies the interface ratchet.DataProcessor
+var _ ratchet.DataProcessor = &CSVReader{}
+
+// NewCSVReader creates a new CSVReader that will read CSV data from an io.Reader
 func NewCSVReader(reader io.Reader) (*CSVReader, error) {
 
 	csvReader := csv.NewReader(reader)
 
 	headers, err := csvReader.Read()
 	if err == io.EOF {
-		return nil, fmt.Errorf("Unable to read headers from CSV. EOF recieved.")
+		return nil, fmt.Errorf("unable to read headers from CSV: EOF recieved")
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Error reading headers from CSV: %s", err)
+		return nil, fmt.Errorf("error reading headers from CSV: %s", err)
 	}
 
 	return &CSVReader{
@@ -32,13 +38,14 @@ func NewCSVReader(reader io.Reader) (*CSVReader, error) {
 	}, nil
 }
 
+// ProcessData will be called for each data sent from the previous stage.
 func (r *CSVReader) ProcessData(d data.JSON, outputChan chan data.JSON, killChan chan error) {
-	r.ForEachData(killChan, func(d data.JSON) {
+	r.forEachData(killChan, func(d data.JSON) {
 		outputChan <- d
 	})
 }
 
-func (r *CSVReader) ForEachData(killChan chan error, forEach func(d data.JSON)) {
+func (r *CSVReader) forEachData(killChan chan error, forEach func(d data.JSON)) {
 
 	for {
 		row, err := r.reader.Read()
@@ -65,6 +72,7 @@ func (r *CSVReader) ForEachData(killChan chan error, forEach func(d data.JSON)) 
 
 }
 
+// Finish will be called after the previous stage has finished sending data,
 func (r *CSVReader) Finish(outputChan chan data.JSON, killChan chan error) {
 }
 
