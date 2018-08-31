@@ -1,13 +1,14 @@
 package ratchet_processors
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
 
-	"github.com/dailyburn/ratchet"
-	"github.com/dailyburn/ratchet/data"
-	"github.com/dailyburn/ratchet/util"
+	"github.com/rhansen2/ratchet"
+	"github.com/rhansen2/ratchet/data"
+	"github.com/rhansen2/ratchet/util"
 )
 
 // CSVReader is a ratchet DataProcessor for extracting data from CSV files
@@ -26,7 +27,7 @@ func NewCSVReader(reader io.Reader) (*CSVReader, error) {
 
 	headers, err := csvReader.Read()
 	if err == io.EOF {
-		return nil, fmt.Errorf("unable to read headers from CSV: EOF recieved")
+		return nil, fmt.Errorf("unable to read headers from CSV: EOF received")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error reading headers from CSV: %s", err)
@@ -39,13 +40,13 @@ func NewCSVReader(reader io.Reader) (*CSVReader, error) {
 }
 
 // ProcessData will be called for each data sent from the previous stage.
-func (r *CSVReader) ProcessData(d data.JSON, outputChan chan data.JSON, killChan chan error) {
-	r.forEachData(killChan, func(d data.JSON) {
+func (r *CSVReader) ProcessData(d data.JSON, outputChan chan data.JSON, killChan chan error, ctx context.Context) {
+	r.forEachData(killChan, ctx, func(d data.JSON) {
 		outputChan <- d
 	})
 }
 
-func (r *CSVReader) forEachData(killChan chan error, forEach func(d data.JSON)) {
+func (r *CSVReader) forEachData(killChan chan error, ctx context.Context, forEach func(d data.JSON)) {
 
 	for {
 		row, err := r.reader.Read()
@@ -53,7 +54,7 @@ func (r *CSVReader) forEachData(killChan chan error, forEach func(d data.JSON)) 
 			if err == io.EOF {
 				break
 			}
-			util.KillPipelineIfErr(fmt.Errorf("Error reading CSV rows: %s", err), killChan)
+			util.KillPipelineIfErr(fmt.Errorf("Error reading CSV rows: %s", err), killChan, ctx)
 		}
 
 		fields := make([]interface{}, len(row))
@@ -65,7 +66,7 @@ func (r *CSVReader) forEachData(killChan chan error, forEach func(d data.JSON)) 
 
 		d, err := data.JSONFromHeaderAndRows(r.headers, rows)
 		if err != nil {
-			util.KillPipelineIfErr(fmt.Errorf("Error marshaling CSV rows: %s", err), killChan)
+			util.KillPipelineIfErr(fmt.Errorf("Error marshaling CSV rows: %s", err), killChan, ctx)
 		}
 		forEach(d)
 	}
@@ -73,7 +74,7 @@ func (r *CSVReader) forEachData(killChan chan error, forEach func(d data.JSON)) 
 }
 
 // Finish will be called after the previous stage has finished sending data,
-func (r *CSVReader) Finish(outputChan chan data.JSON, killChan chan error) {
+func (r *CSVReader) Finish(outputChan chan data.JSON, killChan chan error, ctx context.Context) {
 }
 
 func (r *CSVReader) String() string {

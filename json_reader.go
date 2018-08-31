@@ -1,13 +1,14 @@
 package ratchet_processors
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
 
-	"github.com/dailyburn/ratchet/data"
-	"github.com/dailyburn/ratchet/util"
+	"github.com/rhansen2/ratchet/data"
+	"github.com/rhansen2/ratchet/util"
 )
 
 type JSONReader struct {
@@ -21,18 +22,18 @@ func NewJSONReader(r io.Reader) *JSONReader {
 	}
 }
 
-func (r *JSONReader) ProcessData(d data.JSON, outputChan chan data.JSON, killChan chan error) {
+func (r *JSONReader) ProcessData(d data.JSON, outputChan chan data.JSON, killChan chan error, ctx context.Context) {
 	buf, err := ioutil.ReadAll(r.reader)
-	util.KillPipelineIfErr(err, killChan)
+	util.KillPipelineIfErr(err, killChan, ctx)
 
 	if !json.Valid(buf) {
-		util.KillPipelineIfErr(errors.New("Not valid JSON"), killChan)
+		util.KillPipelineIfErr(errors.New("Not valid JSON"), killChan, ctx)
 	}
 
 	outputChan <- buf
 }
 
-func (r *JSONReader) Finish(outputChan chan data.JSON, killChan chan error) {
+func (r *JSONReader) Finish(outputChan chan data.JSON, killChan chan error, ctx context.Context) {
 }
 
 func (r *JSONReader) String() string {

@@ -1,25 +1,29 @@
 package ratchet_processors
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
 
-	"github.com/dailyburn/ratchet"
-	"github.com/dailyburn/ratchet/data"
+	"github.com/rhansen2/ratchet"
+	"github.com/rhansen2/ratchet/data"
 )
 
 type testInput struct {
 	inputData []string
 }
 
-func (p *testInput) ProcessData(_ data.JSON, outputChan chan data.JSON, killChan chan error) {
+// ProcessData implements the ratchet.DataProcessor interface
+func (p *testInput) ProcessData(_ data.JSON, outputChan chan data.JSON, killChan chan error, ctx context.Context) {
 	for _, d := range p.inputData {
 		outputChan <- []byte(d)
 	}
 }
-func (p *testInput) Finish(outputChan chan data.JSON, killChan chan error) {
+
+// Finish implements the ratchet.DataProcessor interface
+func (p *testInput) Finish(outputChan chan data.JSON, killChan chan error, ctx context.Context) {
 
 }
 
@@ -27,11 +31,11 @@ type testOutput struct {
 	Data []string
 }
 
-func (p *testOutput) ProcessData(d data.JSON, _ chan data.JSON, killChan chan error) {
+func (p *testOutput) ProcessData(d data.JSON, _ chan data.JSON, killChan chan error, ctx context.Context) {
 	p.Data = append(p.Data, string(d))
 	fmt.Println("OUT:", d)
 }
-func (p *testOutput) Finish(outputChan chan data.JSON, killChan chan error) {
+func (p *testOutput) Finish(outputChan chan data.JSON, killChan chan error, ctx context.Context) {
 
 }
 
@@ -42,11 +46,11 @@ func testDataEqual(s1, s2 string) (bool, error) {
 	var err error
 	err = json.Unmarshal([]byte(s1), &o1)
 	if err != nil {
-		return false, fmt.Errorf("Error mashalling string 1 :: %s", err.Error())
+		return false, fmt.Errorf("failed to marshal string 1 :: %s", err.Error())
 	}
 	err = json.Unmarshal([]byte(s2), &o2)
 	if err != nil {
-		return false, fmt.Errorf("Error mashalling string 2 :: %s", err.Error())
+		return false, fmt.Errorf("failed to marshal string 2 :: %s", err.Error())
 	}
 
 	return reflect.DeepEqual(o1, o2), nil
@@ -64,7 +68,7 @@ func testRatchetProcessor(t *testing.T, r ratchet.DataProcessor, inputData []str
 	}
 	processors = append(processors, r, out)
 
-	pipeline := ratchet.NewPipeline(processors...)
+	pipeline := ratchet.NewPipeline(context.TODO(), func() {}, processors...)
 	err := <-pipeline.Run()
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +80,7 @@ func testRatchetProcessor(t *testing.T, r ratchet.DataProcessor, inputData []str
 
 	for i := 0; i < len(expectedOutput); i++ {
 		if eq, err := testDataEqual(expectedOutput[i], out.Data[i]); err != nil {
-			t.Errorf("unable to compare values for output %d: %s", i, err)
+			t.Errorf("failed to compare values for output %d: %s", i, err)
 		} else if !eq {
 			t.Errorf("expected output %d to be %q got %q", i, expectedOutput[i], out.Data[i])
 		}
