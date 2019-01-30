@@ -9,7 +9,7 @@ import (
 
 	"github.com/rhansen2/ratchet/data"
 	"github.com/rhansen2/ratchet/util"
-	"github.com/samuelhug/udt"
+	"github.com/samhug/udt"
 
 	pb "gopkg.in/cheggaaa/pb.v1"
 )
