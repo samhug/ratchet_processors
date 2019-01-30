@@ -27,6 +27,8 @@ for (i=0; i<data.length; i+=1) {
 	data[i]["B"] += 2;
 	data[i]["C"] += 3;
 	data[i]["D"] += 4;
+
+	output(data[i]);
 }
 `)
 	if err != nil {
@@ -34,6 +36,6 @@ for (i=0; i<data.length; i+=1) {
 	}
 
 	testRatchetProcessor(t, r, in, []string{
-		`[{"A":2,"B":4,"C":6,"D":8}]`, `[{"A":3,"B":6,"C":9,"D":12}]`,
+		`{"A":2,"B":4,"C":6,"D":8}`, `{"A":3,"B":6,"C":9,"D":12}`,
 	})
 }
