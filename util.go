@@ -33,7 +33,7 @@ type testOutput struct {
 
 func (p *testOutput) ProcessData(d data.JSON, _ chan data.JSON, killChan chan error, ctx context.Context) {
 	p.Data = append(p.Data, string(d))
-	fmt.Println("OUT:", d)
+	//fmt.Println("OUT:", d)
 }
 func (p *testOutput) Finish(outputChan chan data.JSON, killChan chan error, ctx context.Context) {
 
