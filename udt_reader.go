@@ -1,14 +1,14 @@
 package ratchet_processors
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 
-	"github.com/rhansen2/ratchet/data"
-	"github.com/rhansen2/ratchet/util"
+	"github.com/licaonfee/ratchet/data"
+	"github.com/licaonfee/ratchet/processors"
+	"github.com/licaonfee/ratchet/util"
 	"github.com/samhug/udt"
 
 	pb "gopkg.in/cheggaaa/pb.v1"
@@ -19,6 +19,9 @@ type UdtReader struct {
 	client *udt.Client
 	query  *UdtQueryConfig
 }
+
+// Assert UdtReader satisfies the interface processors.DataProcessor
+var _ processors.DataProcessor = &UdtReader{}
 
 // UdtEnvConfig holds configuration info for a UDT connection
 type UdtEnvConfig = udt.EnvConfig
@@ -37,32 +40,32 @@ func NewUdtReader(client *udt.Client, query *UdtQueryConfig) (*UdtReader, error)
 }
 
 // ProcessData implements the ratchet.DataProcessor interface
-func (r *UdtReader) ProcessData(d data.JSON, outputChan chan data.JSON, killChan chan error, ctx context.Context) {
-	r.runUDTQuery(killChan, ctx, func(d data.JSON) {
+func (r *UdtReader) ProcessData(d data.JSON, outputChan chan data.JSON, killChan chan error) {
+	r.runUDTQuery(killChan, func(d data.JSON) {
 		outputChan <- d
 	})
 }
 
 // Finish implements the ratchet.DataProcessor interface
-func (r *UdtReader) Finish(outputChan chan data.JSON, killChan chan error, ctx context.Context) {}
+func (r *UdtReader) Finish(outputChan chan data.JSON, killChan chan error) {}
 
 // String returns a string containing the type of DataProcessor
 func (r *UdtReader) String() string {
 	return "UdtReader"
 }
 
-func (r *UdtReader) runUDTQuery(killChan chan error, ctx context.Context, forEach func(d data.JSON)) {
+func (r *UdtReader) runUDTQuery(killChan chan error, forEach func(d data.JSON)) {
 
 	log.Printf("Selecting %s records ...\n", r.query.File)
 
 	q, err := udt.NewQueryBatched(r.client, r.query)
 	if err != nil {
-		util.KillPipelineIfErr(fmt.Errorf("UDT query failed: %s", err), killChan, ctx)
+		util.KillPipelineIfErr(fmt.Errorf("UDT query failed: %s", err), killChan)
 		return
 	}
 	defer func() {
 		if err := q.Close(); err != nil {
-			util.KillPipelineIfErr(fmt.Errorf("error closing query: %s", err), killChan, ctx)
+			util.KillPipelineIfErr(fmt.Errorf("error closing query: %s", err), killChan)
 		}
 	}()
 
@@ -77,13 +80,13 @@ func (r *UdtReader) runUDTQuery(killChan chan error, ctx context.Context, forEac
 			if err == io.EOF {
 				break
 			}
-			util.KillPipelineIfErr(fmt.Errorf("failed to read udt record: %s", err), killChan, ctx)
+			util.KillPipelineIfErr(fmt.Errorf("failed to read udt record: %s", err), killChan)
 			return
 		}
 
 		data, err := json.Marshal(record)
 		if err != nil {
-			util.KillPipelineIfErr(fmt.Errorf("failed to encode udt record: %s", err), killChan, ctx)
+			util.KillPipelineIfErr(fmt.Errorf("failed to encode udt record: %s", err), killChan)
 			return
 		}
 		forEach(data)
