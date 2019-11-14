@@ -18,3 +18,13 @@ func TestJSONLReader(t *testing.T) {
 		`{"A":"a","B":"b","C":"c","D":"d"}`,
 	})
 }
+
+func TestJSONLReader_NoTrailingNewLine(t *testing.T) {
+	in := bytes.NewBufferString(`{"A": "1", "B": "2", "C": "3", "D": "4"}`)
+
+	r := NewJSONLReader(in)
+
+	testRatchetProcessor(t, r, nil, []string{
+		`{"A":"1","B":"2","C":"3","D":"4"}`,
+	})
+}

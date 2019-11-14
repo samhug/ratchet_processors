@@ -12,7 +12,7 @@ import (
 )
 
 type JSONLReader struct {
-	reader *bufio.Reader
+	scanner *bufio.Scanner
 }
 
 // Assert JSONLReader satisfies the interface processors.DataProcessor
@@ -21,29 +21,23 @@ var _ processors.DataProcessor = &JSONLReader{}
 // NewJSONLReader returns a new JSONLReader wrapping the given io.Reader object
 func NewJSONLReader(r io.Reader) *JSONLReader {
 	return &JSONLReader{
-		reader: bufio.NewReader(r),
+		scanner: bufio.NewScanner(r),
 	}
 }
 
 func (r *JSONLReader) ProcessData(d data.JSON, outputChan chan data.JSON, killChan chan error) {
-	var err error
-	for {
-		buf, err := r.reader.ReadBytes('\n')
-		if err != nil {
-			break
-		}
+	var line []byte
+	for r.scanner.Scan() {
+		line = r.scanner.Bytes()
 
-		// Strip trailing newline
-		buf = buf[:len(buf)-1]
-
-		if !json.Valid(buf) {
+		if !json.Valid(line) {
 			util.KillPipelineIfErr(errors.New("Not valid JSON"), killChan)
 		}
 
-		outputChan <- buf
+		outputChan <- line
 	}
 
-	if err != io.EOF {
+	if err := r.scanner.Err(); err != nil {
 		util.KillPipelineIfErr(err, killChan)
 	}
 }
