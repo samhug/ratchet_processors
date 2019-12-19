@@ -34,7 +34,9 @@ func (r *JSONLReader) ProcessData(d data.JSON, outputChan chan data.JSON, killCh
 			util.KillPipelineIfErr(errors.New("Not valid JSON"), killChan)
 		}
 
-		outputChan <- line
+		// scanner.Bytes will overwrite our slice on the next iteration so we send a copy
+		// to the output channel
+		outputChan <- append([]byte(nil), line...)
 	}
 
 	if err := r.scanner.Err(); err != nil {
