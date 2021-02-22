@@ -18,9 +18,7 @@ require (
 	github.com/nats-io/nats-server v1.4.1 // indirect
 	github.com/nats-io/nats-streaming-server v0.16.2 // indirect
 	github.com/robertkrimen/otto v0.0.0-20180617131154-15f95af6e78d
-	github.com/samhug/udt v0.0.5
-	golang.org/x/crypto v0.0.0-20191112222119-e1110fd1c708 // indirect
-	golang.org/x/sys v0.0.0-20191113150313-8ad342257130 // indirect
+	github.com/samhug/udt v0.0.6
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 )
