@@ -11,7 +11,7 @@ import (
 	"github.com/licaonfee/ratchet/util"
 	"github.com/samhug/udt"
 
-	pb "gopkg.in/cheggaaa/pb.v1"
+	pb "github.com/cheggaaa/pb/v3"
 )
 
 // UdtReader connects to a UDT server via SSH and runs the specified query.
@@ -71,8 +71,10 @@ func (r *UdtReader) runUDTQuery(killChan chan error, forEach func(d data.JSON)) 
 
 	log.Printf("Selected %d records ...\n", q.Count())
 
-	bar := pb.StartNew(q.Count())
-	bar.Prefix("Fetching " + r.query.File + " records: ")
+	bar := pb.New(q.Count())
+	bar.SetTemplateString(`{{ green "Fetching records:" }} {{ string . "file" | blue }} {{ bar . "[" "=" ">" "-" "]"}} {{speed . "%s records/sec" "..." | blue }} {{percent . | green}}`)
+	bar.Set("file", r.query.File)
+	bar.Start()
 
 	for {
 		record, err := q.ReadRecord()
