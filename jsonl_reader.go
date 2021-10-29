@@ -12,7 +12,7 @@ import (
 )
 
 type JSONLReader struct {
-	scanner *bufio.Scanner
+	reader *bufio.Reader
 }
 
 // Assert JSONLReader satisfies the interface processors.DataProcessor
@@ -21,26 +21,34 @@ var _ processors.DataProcessor = &JSONLReader{}
 // NewJSONLReader returns a new JSONLReader wrapping the given io.Reader object
 func NewJSONLReader(r io.Reader) *JSONLReader {
 	return &JSONLReader{
-		scanner: bufio.NewScanner(r),
+		reader: bufio.NewReader(r),
 	}
 }
 
 func (r *JSONLReader) ProcessData(d data.JSON, outputChan chan data.JSON, killChan chan error) {
-	var line []byte
-	for r.scanner.Scan() {
-		line = r.scanner.Bytes()
+	// TODO: This allocates more than is necessary but at least it can handle large lines
+Outer:
+	for {
+		var line []byte
+		for {
+			chunk, isPrefix, err := r.reader.ReadLine()
+			if err != nil {
+				if err == io.EOF {
+					break Outer
+				}
+				util.KillPipelineIfErr(err, killChan)
+			}
+			line = append(line, chunk...)
+			if !isPrefix {
+				break
+			}
+		}
 
 		if !json.Valid(line) {
 			util.KillPipelineIfErr(errors.New("Not valid JSON"), killChan)
 		}
 
-		// scanner.Bytes will overwrite our slice on the next iteration so we send a copy
-		// to the output channel
-		outputChan <- append([]byte(nil), line...)
-	}
-
-	if err := r.scanner.Err(); err != nil {
-		util.KillPipelineIfErr(err, killChan)
+		outputChan <- line
 	}
 }
 
