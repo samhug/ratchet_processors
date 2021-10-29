@@ -1,6 +1,6 @@
 module github.com/samhug/ratchet_processors
 
-go 1.12
+go 1.14
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.3.3 // indirect
@@ -17,6 +17,6 @@ require (
 	github.com/nats-io/nats-server v1.4.1 // indirect
 	github.com/nats-io/nats-streaming-server v0.16.2 // indirect
 	github.com/robertkrimen/otto v0.0.0-20200922221731-ef014fd054ac
-	github.com/samhug/udt v0.0.6
+	github.com/samhug/udt v0.0.7
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 )
